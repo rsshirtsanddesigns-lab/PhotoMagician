@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoMagician</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    header {
+      text-align: center;
+      padding: 2rem 1rem 1rem;
+    }
+
+    header h1 {
+      font-size: 3rem;
+      background: linear-gradient(135deg, #e94560, #0f3460);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      color: #aaa;
+      font-size: 1.1rem;
+    }
+
+    main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+      padding: 2rem 1rem;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .card {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 250px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      transition: transform 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+    }
+
+    .card .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; color: #e94560; }
+    .card p { font-size: 0.9rem; color: #aaa; }
+
+    .upload-area {
+      border: 2px dashed #e94560;
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      width: 100%;
+      max-width: 500px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .upload-area:hover { background: rgba(233,69,96,0.08); }
+
+    .upload-area p { color: #aaa; margin-top: 0.5rem; }
+
+    #file-input { display: none; }
+
+    #preview {
+      max-width: 500px;
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    #preview img {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    button {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #c73652; }
+
+    footer {
+      margin-top: auto;
+      padding: 1rem;
+      color: #555;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>✨ PhotoMagician</h1>
+    <p>Total Package — Upload a photo and work your magic</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <div class="icon">🖼️</div>
+      <h2>Upload</h2>
+      <p>Select any image from your device to get started</p>
+    </div>
+    <div class="card">
+      <div class="icon">🎨</div>
+      <h2>Edit</h2>
+      <p>Apply filters, adjust brightness, contrast, and more</p>
+    </div>
+    <div class="card">
+      <div class="icon">💾</div>
+      <h2>Save</h2>
+      <p>Download your edited photo in one click</p>
+    </div>
+  </main>
+
+  <div class="upload-area" onclick="document.getElementById('file-input').click()">
+    <div style="font-size:2.5rem">📁</div>
+    <strong>Click to upload a photo</strong>
+    <p>Supports JPG, PNG, GIF, WebP</p>
+    <input type="file" id="file-input" accept="image/*" onchange="loadImage(event)" />
+  </div>
+
+  <div id="preview">
+    <img id="preview-img" src="" alt="Preview" />
+    <div class="controls">
+      <button onclick="applyFilter('grayscale(100%)')">Grayscale</button>
+      <button onclick="applyFilter('sepia(100%)')">Sepia</button>
+      <button onclick="applyFilter('invert(100%)')">Invert</button>
+      <button onclick="applyFilter('brightness(1.4) contrast(1.2)')">Vivid</button>
+      <button onclick="applyFilter('blur(2px)')">Blur</button>
+      <button onclick="applyFilter('none')">Reset</button>
+      <button onclick="downloadImage()">⬇ Download</button>
+    </div>
+  </div>
+
+  <footer>PhotoMagician &copy; 2026</footer>
+
+  <script>
+    let currentFilter = 'none';
+
+    function loadImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = document.getElementById('preview-img');
+        img.src = e.target.result;
+        img.style.filter = 'none';
+        currentFilter = 'none';
+        document.getElementById('preview').style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function applyFilter(filter) {
+      const img = document.getElementById('preview-img');
+      img.style.filter = filter;
+      currentFilter = filter;
+    }
+
+    function downloadImage() {
+      const img = document.getElementById('preview-img');
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.filter = currentFilter;
+      ctx.drawImage(img, 0, 0);
+      const link = document.createElement('a');
+      link.download = 'photomagician-edit.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>
