@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PhotoMagician</title>
+<style>
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden; touch-action: none;
+  background: #111;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+}
+#app {
+  display: flex; flex-direction: column;
+  width: 100vw; height: 100vh; overflow: hidden;
+}
+
+/* ===== MENU BAR SHARED ===== */
+.menu-bar {
+  position: relative;
+  display: flex; align-items: center;
+  height: 88px; min-height: 88px;
+  flex-shrink: 0; overflow: hidden; z-index: 10;
+}
+#top-bar {
+  background: linear-gradient(180deg, #282828 0%, #161616 35%, #060606 60%, #1a1a1a 100%);
+  box-shadow: 0 3px 14px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+#bottom-bar {
+  background: linear-gradient(180deg, #1a1a1a 0%, #060606 40%, #161616 65%, #282828 100%);
+  box-shadow: 0 -3px 14px rgba(0,0,0,0.95), inset 0 -1px 0 rgba(255,255,255,0.05);
+}
+/* Royal metallic outline via mask trick */
+.menu-bar::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background: linear-gradient(135deg,
+    #d8d8d8 0%, #787878 18%, #f0f0f0 35%, #606060 50%,
+    #e0e0e0 65%, #888888 82%, #c0c0c0 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1px;
+}
+
+/* ===== MAGNIFIER LABEL ===== */
+#magnifier-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  background: linear-gradient(to top, #707070, #e8e8e8, #a0a0a0, #f5f5f5, #888);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  padding: 0 7px; flex-shrink: 0; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid #2e2e2e;
+}
+
+/* ===== SCROLLABLE CONTROLS ROW ===== */
+.ctrl-scroll {
+  display: flex; align-items: center;
+  gap: 7px; padding: 9px 10px;
+  overflow-x: auto; flex: 1; height: 100%;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.ctrl-scroll::-webkit-scrollbar { display: none; }
+
+/* ===== CONTROL BOX WRAPPER (gradient border) ===== */
+.ctrl-wrap {
+  flex-shrink: 0;
+  background: linear-gradient(135deg,
+    #cccccc 0%, #686868 22%, #dcdcdc 42%, #7c7c7c 60%, #c8c8c8 78%, #b0b0b0 100%);
+  padding: 1px; border-radius: 11px;
+}
+
+/* ===== CONTROL BOX ===== */
+.ctrl-box {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: space-between;
+  width: 68px; height: 68px;
+  padding: 5px 3px 4px;
+  border-radius: 10px;
+  position: relative;
+  -webkit-user-select: none; user-select: none;
+  transition: box-shadow 0.2s;
+}
+.ctrl-box.white-box {
+  background: linear-gradient(145deg, #f7f7f7 0%, #dedede 45%, #f2f2f2 75%, #e5e5e5 100%);
+}
+.ctrl-box.silver-box {
+  background: linear-gradient(145deg,
+    #d6d6d6 0%, #b2b2b2 22%, #e0e0e0 45%, #929292 65%, #cacaca 85%, #d0d0d0 100%);
+}
+.ctrl-box.active-glow {
+  background: linear-gradient(145deg,
+    #fffacc 0%, #ffe033 28%, #fff5aa 52%, #ddb800 74%, #f5d000 100%) !important;
+  box-shadow: 0 0 14px rgba(255,198,0,0.9), 0 0 30px rgba(255,155,0,0.38) !important;
+}
+
+/* ===== CONTROL LABEL ===== */
+.ctrl-label {
+  font-size: 8.5px; font-weight: 800;
+  text-align: center; letter-spacing: 0.3px;
+  color: #252525; line-height: 1.15;
+  pointer-events: none;
+}
+
+/* ===== TOP BOX ROW: [◀] val [▶] ===== */
+.ctrl-top-row {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+}
+
+/* ===== BOTTOM BOX COLUMN: [▲] label val [▼] ===== */
+.ctrl-bot-col {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: space-between;
+  width: 100%; height: 100%;
+}
+
+/* ===== VALUE DISPLAY ===== */
+.ctrl-val {
+  font-size: 10.5px; font-weight: 800;
+  color: #1e1e1e; text-align: center;
+  min-width: 24px; line-height: 1;
+  pointer-events: none;
+}
+
+/* ===== ARROW BUTTONS ===== */
+.ctrl-arrow {
+  background: rgba(0,0,0,0.07);
+  border: none; cursor: pointer;
+  color: #2a2a2a; font-size: 9px; font-weight: 900;
+  padding: 0; width: 19px; height: 17px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; flex-shrink: 0; line-height: 1;
+  transition: background 0.1s; touch-action: manipulation;
+}
+.ctrl-arrow:hover  { background: rgba(0,0,0,0.14); }
+.ctrl-arrow:active { background: rgba(0,0,0,0.26); }
+
+/* ===== MAIN AREA ===== */
+#main-area {
+  display: flex; flex: 1; overflow: hidden; min-height: 0;
+}
+
+/* ===== CANVAS WRAPPER ===== */
+#canvas-wrapper {
+  position: relative; flex: 1; overflow: hidden;
+  background: #1d1d1d; touch-action: none; cursor: default;
+}
+#canvas-wrapper.unlocked { cursor: grab; }
+#canvas-wrapper.unlocked.dragging { cursor: grabbing; }
+
+#photo-canvas {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%; display: block;
+}
+
+/* Logo watermark */
+#canvas-logo {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none; z-index: 1; text-align: center;
+  opacity: 0.11;
+}
+#canvas-logo svg { width: 220px; height: auto; }
+
+/* Save flash */
+#save-flash {
+  display: none; position: absolute; inset: 0;
+  background: rgba(255,255,255,0.28); z-index: 100;
+  pointer-events: none;
+}
+#save-flash.go {
+  display: block;
+  animation: flashFade 0.45s ease forwards;
+}
+@keyframes flashFade { 0%{opacity:1} 100%{opacity:0} }
+
+/* ===== RIGHT PANEL ===== */
+#right-panel {
+  width: 62px; display: flex;
+  flex-direction: column; align-items: center;
+  justify-content: center; gap: 9px;
+  padding: 10px 5px;
+  background: linear-gradient(180deg, #181818 0%, #0d0d0d 50%, #131313 100%);
+  border-left: 1px solid #262626; flex-shrink: 0;
+}
+
+/* generic silver panel button */
+.r-btn {
+  width: 48px; height: 48px;
+  border-radius: 9px; border: none; cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 800;
+  color: #1a1a1a; gap: 3px; letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: linear-gradient(145deg,
+    #e2e2e2 0%, #b8b8b8 26%, #ebebeb 52%, #a2a2a2 76%, #d4d4d4 100%);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.55),
+    inset 0 1px 1px rgba(255,255,255,0.65),
+    inset 0 -1px 1px rgba(0,0,0,0.18);
+  transition: transform 0.1s, box-shadow 0.1s;
+  -webkit-user-select: none; user-select: none;
+}
+.r-btn:active { transform: scale(0.93); box-shadow: 0 1px 3px rgba(0,0,0,0.45); }
+.r-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Lock button */
+#lock-btn {
+  font-size: 24px; background: none; border: none;
+  cursor: pointer; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, filter 0.15s;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+  -webkit-user-select: none; user-select: none;
+}
+#lock-btn.unlocked-state { filter: drop-shadow(0 0 6px rgba(255,160,0,0.85)); }
+#lock-btn:active { transform: scale(0.88); }
+
+/* Lens Snap — round red */
+#lens-snap-btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 33%, #ff7878, #cc0000 54%, #8a0000 100%);
+  border: 2.5px solid #ff5555;
+  box-shadow: 0 0 11px rgba(210,0,0,0.55),
+    inset 0 1px 2px rgba(255,130,130,0.45);
+  cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: #fff;
+  font-size: 7.5px; font-weight: 800; text-align: center;
+  line-height: 1.3; letter-spacing: 0.5px; text-transform: uppercase;
+  transition: transform 0.1s, box-shadow 0.1s;
+  -webkit-user-select: none; user-select: none;
+}
+#lens-snap-btn:active { transform: scale(0.92); box-shadow: 0 0 5px rgba(180,0,0,0.4); }
+
+/* Apply */
+.apply-btn {
+  width: 48px; height: 28px; border-radius: 6px;
+  border: none; cursor: pointer;
+  font-size: 8.5px; font-weight: 800;
+  letter-spacing: 0.7px; text-transform: uppercase;
+  color: #1a1a1a;
+  background: linear-gradient(145deg, #e0e0e0 0%, #b0b0b0 52%, #d0d0d0 100%);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.45);
+  transition: transform 0.1s;
+  -webkit-user-select: none; user-select: none;
+}
+.apply-btn:active { transform: scale(0.93); }
+
+/* hidden inputs */
+#file-input, #camera-input { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <input type="file" id="file-input" accept="image/*">
+  <input type="file" id="camera-input" accept="image/*" capture="environment">
+
+  <!-- TOP BAR -->
+  <div id="top-bar" class="menu-bar">
+    <div id="magnifier-label">Magnifier</div>
+    <div id="top-controls" class="ctrl-scroll"></div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+    <div id="canvas-wrapper">
+      <canvas id="photo-canvas"></canvas>
+      <!-- Logo watermark -->
+      <div id="canvas-logo">
+        <svg viewBox="0 0 320 130" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lg1" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%"   stop-color="#aaa"/>
+              <stop offset="30%"  stop-color="#1a1a1a"/>
+              <stop offset="65%"  stop-color="#777"/>
+              <stop offset="100%" stop-color="#000"/>
+            </linearGradient>
+          </defs>
+          <text x="160" y="55" font-family="Arial Black,sans-serif" font-size="38"
+            font-weight="900" text-anchor="middle" dominant-baseline="middle"
+            fill="url(#lg1)" letter-spacing="3">PHOTO</text>
+          <line x1="28" y1="72" x2="118" y2="72" stroke="#555" stroke-width="1.2"/>
+          <circle cx="160" cy="72" r="5" fill="#444"/>
+          <line x1="202" y1="72" x2="292" y2="72" stroke="#555" stroke-width="1.2"/>
+          <text x="160" y="100" font-family="Arial,sans-serif" font-size="17"
+            font-weight="700" text-anchor="middle" dominant-baseline="middle"
+            fill="url(#lg1)" letter-spacing="7">MAGICIAN</text>
+        </svg>
+      </div>
+      <div id="save-flash"></div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <!-- Upload -->
+      <button class="r-btn" id="upload-btn" title="Upload Photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 16 12 12 8 16"/>
+          <line x1="12" y1="12" x2="12" y2="21"/>
+          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+        </svg>
+        <span>Photo</span>
+      </button>
+
+      <!-- Lock -->
+      <button id="lock-btn" title="Lock/Unlock photo (or double-click canvas)">🔒</button>
+
+      <!-- Lens Snap -->
+      <button id="lens-snap-btn" title="Capture with camera">Lens<br>Snap</button>
+
+      <!-- Apply -->
+      <button class="apply-btn" id="apply-btn" title="Apply adjustments">Apply</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottom-bar" class="menu-bar">
+    <div id="bottom-controls" class="ctrl-scroll"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ============================================================
+//  PhotoMagician — complete single-file implementation
+// ============================================================
+
+// ---- DOM refs ----
+const canvas       = document.getElementById('photo-canvas');
+const ctx          = canvas.getContext('2d', { willReadFrequently: true });
+const canvasWrap   = document.getElementById('canvas-wrapper');
+const logoEl       = document.getElementById('canvas-logo');
+const saveFlash    = document.getElementById('save-flash');
+const lockBtn      = document.getElementById('lock-btn');
+const fileInput    = document.getElementById('file-input');
+const cameraInput  = document.getElementById('camera-input');
+const uploadBtn    = document.getElementById('upload-btn');
+const lensSnapBtn  = document.getElementById('lens-snap-btn');
+const applyBtn     = document.getElementById('apply-btn');
+
+// ---- Control definitions ----
+const TOP_CTRL = [
+  { key:'size',         label:'Size',     boxClass:'white-box',  step:5,  min:10 },
+  { key:'zoom',         label:'Zoom',     boxClass:'white-box',  step:10, min:10 },
+  { key:'hgeq',         label:'HGEQ',     boxClass:'silver-box', step:5,  min:0  },
+  { key:'autoContrast', label:'Auto\nContr', boxClass:'silver-box', step:5, min:0 },
+  { key:'hdLight',      label:'HD\nLight', boxClass:'silver-box', step:5         },
+];
+
+const BOT_CTRL = [
+  { key:'dehaze',     label:'Dehaze',    min:0 },
+  { key:'deblur',     label:'Deblur',    min:0 },
+  { key:'contrast',   label:'Contrast'        },
+  { key:'structure',  label:'Struct',    min:0 },
+  { key:'smooth',     label:'Smooth',    min:0 },
+  { key:'sharpness',  label:'Sharp',     min:0 },
+  { key:'saturation', label:'Satur'           },
+  { key:'tint',       label:'Tint'            },
+  { key:'temp',       label:'Temp'            },
+  { key:'brightness', label:'Bright'          },
+  { key:'exposure',   label:'Exposr'          },
+  { key:'shadow',     label:'Shadow'          },
+];
+
+// ---- Application state ----
+const S = {
+  origBitmap  : null,   // original ImageBitmap
+  origW       : 0,
+  origH       : 0,
+  processedBmp: null,   // last processed ImageBitmap
+
+  baseScale : 1,        // fit-to-canvas scale factor
+  panX      : 0,
+  panY      : 0,
+  viewScale : 1,        // pinch / zoom-control multiplier
+
+  locked    : true,
+  isDragging: false,
+  dragStartX: 0, dragStartY: 0,
+  dragPanX  : 0, dragPanY  : 0,
+  pinchDist : 0,
+
+  renderTimer  : null,
+  longPressTimer: null,
+
+  adj: {
+    size:0, zoom:100,         // top: size handled via baseScale
+    hgeq:0, autoContrast:0, hdLight:0,
+    dehaze:0, deblur:0, contrast:0, structure:0,
+    smooth:0, sharpness:0, saturation:0,
+    tint:0, temp:0, brightness:0, exposure:0, shadow:0,
+  }
+};
+// size starts at 100
+S.adj.size = 100;
+
+// ---- Build UI controls ----
+function buildTopControls() {
+  const container = document.getElementById('top-controls');
+  TOP_CTRL.forEach(cfg => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ctrl-wrap';
+
+    const box = document.createElement('div');
+    box.className = 'ctrl-box ' + cfg.boxClass;
+    box.id = 'cb-' + cfg.key;
+
+    const label = document.createElement('div');
+    label.className = 'ctrl-label';
+    label.innerHTML = cfg.label.replace('\n', '<br>');
+
+    const row = document.createElement('div');
+    row.className = 'ctrl-top-row';
+
+    const btnL = makeArrow('&#9664;', () => changeAdj(cfg.key, -(cfg.step||1), cfg.min));
+    const valEl = document.createElement('span');
+    valEl.className = 'ctrl-val';
+    valEl.id = 'v-' + cfg.key;
+    valEl.textContent = S.adj[cfg.key];
+    const btnR = makeArrow('&#9654;', () => changeAdj(cfg.key,  (cfg.step||1), cfg.min));
+
+    row.append(btnL, valEl, btnR);
+    box.append(label, row);
+    wrap.appendChild(box);
+    container.appendChild(wrap);
+  });
+}
+
+function buildBottomControls() {
+  const container = document.getElementById('bottom-controls');
+  BOT_CTRL.forEach(cfg => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ctrl-wrap';
+
+    const box = document.createElement('div');
+    box.className = 'ctrl-box silver-box';
+    box.id = 'cb-' + cfg.key;
+
+    const col = document.createElement('div');
+    col.className = 'ctrl-bot-col';
+
+    const btnUp = makeArrow('&#9650;', () => changeAdj(cfg.key,  1, cfg.min));
+    const label = document.createElement('div');
+    label.className = 'ctrl-label';
+    label.textContent = cfg.label;
+    const valEl = document.createElement('span');
+    valEl.className = 'ctrl-val';
+    valEl.id = 'v-' + cfg.key;
+    valEl.textContent = S.adj[cfg.key];
+    const btnDn = makeArrow('&#9660;', () => changeAdj(cfg.key, -1, cfg.min));
+
+    col.append(btnUp, label, valEl, btnDn);
+    box.appendChild(col);
+    wrap.appendChild(box);
+    container.appendChild(wrap);
+  });
+}
+
+function makeArrow(html, cb) {
+  const btn = document.createElement('button');
+  btn.className = 'ctrl-arrow';
+  btn.innerHTML = html;
+  btn.addEventListener('click', cb);
+  return btn;
+}
+
+// ---- Adjust a value ----
+function changeAdj(key, delta, min) {
+  let v = S.adj[key] + delta;
+  if (min !== undefined) v = Math.max(min, v);
+  S.adj[key] = v;
+
+  const el = document.getElementById('v-' + key);
+  if (el) el.textContent = v;
+
+  // Glow state for the special top-bar boxes
+  const box = document.getElementById('cb-' + key);
+  if (box) {
+    if (key === 'hgeq' || key === 'autoContrast') {
+      box.classList.toggle('active-glow', v > 0);
+    } else if (key === 'hdLight') {
+      box.classList.toggle('active-glow', v !== 0);
+    }
+  }
+
+  if (key === 'size' || key === 'zoom') {
+    if (S.origBitmap) fitPhoto();
+    drawFrame();
+    return;
+  }
+  scheduleRender();
+}
+
+// ---- Lock / unlock ----
+function setLocked(locked) {
+  S.locked = locked;
+  lockBtn.textContent = locked ? '🔒' : '🔓';
+  lockBtn.classList.toggle('unlocked-state', !locked);
+  canvasWrap.classList.toggle('unlocked', !locked);
+}
+
+lockBtn.addEventListener('click', () => setLocked(!S.locked));
+canvasWrap.addEventListener('dblclick', () => setLocked(!S.locked));
+
+// ---- Upload / Camera ----
+uploadBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadPhoto(e.target.files[0]);
+  fileInput.value = '';
+});
+
+lensSnapBtn.addEventListener('click', () => cameraInput.click());
+cameraInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadPhoto(e.target.files[0]);
+  cameraInput.value = '';
+});
+
+function loadPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const img = new Image();
+    img.onload = async () => {
+      S.origBitmap   = await createImageBitmap(img);
+      S.origW        = img.naturalWidth;
+      S.origH        = img.naturalHeight;
+      S.processedBmp = null;
+      logoEl.style.display = 'none';
+      fitPhoto();
+      scheduleRender();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---- Apply button (bake adjustments into new base) ----
+applyBtn.addEventListener('click', () => {
+  if (!S.origBitmap) return;
+  if (S.processedBmp) {
+    S.origBitmap   = S.processedBmp;
+    S.origW        = S.processedBmp.width;
+    S.origH        = S.processedBmp.height;
+    S.processedBmp = null;
+    // Reset adjustments to zero (except size/zoom)
+    const keepSize = S.adj.size, keepZoom = S.adj.zoom;
+    Object.keys(S.adj).forEach(k => { S.adj[k] = 0; });
+    S.adj.size = keepSize; S.adj.zoom = keepZoom;
+    // Reset UI values
+    [...TOP_CTRL, ...BOT_CTRL].forEach(cfg => {
+      const el = document.getElementById('v-' + cfg.key);
+      if (el) el.textContent = S.adj[cfg.key];
+      const box = document.getElementById('cb-' + cfg.key);
+      if (box) box.classList.remove('active-glow');
+    });
+    fitPhoto();
+    drawFrame();
+  }
+});
+
+// ---- Fit photo to canvas ----
+function fitPhoto() {
+  resizeCanvas();
+  const cw = canvas.width, ch = canvas.height;
+  const imgW = S.origW * (S.adj.size / 100);
+  const imgH = S.origH * (S.adj.size / 100);
+  S.baseScale = Math.min(cw / imgW, ch / imgH);
+  // Center
+  S.panX = (cw - imgW * S.baseScale) / 2;
+  S.panY = (ch - imgH * S.baseScale) / 2;
+  S.viewScale = S.adj.zoom / 100;
+}
+
+// ---- Canvas resize ----
+function resizeCanvas() {
+  const rect = canvasWrap.getBoundingClientRect();
+  const w = Math.round(rect.width), h = Math.round(rect.height);
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w; canvas.height = h;
+  }
+}
+
+// ---- Draw current frame ----
+function drawFrame() {
+  resizeCanvas();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!S.origBitmap && !S.processedBmp) return;
+
+  ctx.fillStyle = '#1d1d1d';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const totalScale = S.baseScale * S.viewScale;
+  const drawW = S.origW * (S.adj.size / 100) * totalScale;
+  const drawH = S.origH * (S.adj.size / 100) * totalScale;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, canvas.width, canvas.height);
+  ctx.clip();
+
+  const src = S.processedBmp || S.origBitmap;
+  ctx.drawImage(src, S.panX, S.panY, drawW, drawH);
+  ctx.restore();
+}
+
+// ---- Scheduled render ----
+function scheduleRender() {
+  if (S.renderTimer) clearTimeout(S.renderTimer);
+  S.renderTimer = setTimeout(processAndDraw, 60);
+}
+
+// ---- Full image-processing pipeline ----
+function processAndDraw() {
+  if (!S.origBitmap) { drawFrame(); return; }
+
+  // Work at a capped resolution for performance
+  const MAX_DIM = 1400;
+  const ratio = Math.min(1, MAX_DIM / S.origW, MAX_DIM / S.origH);
+  const pw = Math.round(S.origW * ratio);
+  const ph = Math.round(S.origH * ratio);
+
+  const off = document.createElement('canvas');
+  off.width = pw; off.height = ph;
+  const offCtx = off.getContext('2d', { willReadFrequently: true });
+  offCtx.drawImage(S.origBitmap, 0, 0, pw, ph);
+
+  let imgData = offCtx.getImageData(0, 0, pw, ph);
+  imgData = applyAllAdjustments(imgData);
+  offCtx.putImageData(imgData, 0, 0);
+
+  createImageBitmap(off).then(bmp => {
+    S.processedBmp = bmp;
+    drawFrame();
+  });
+}
+
+// ============================================================
+//  IMAGE PROCESSING
+// ============================================================
+
+function clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : (v | 0); }
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h = 0, s = 0, l = (max+min)/2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch (max) {
+      case r: h = (g-b)/d + (g<b?6:0); break;
+      case g: h = (b-r)/d + 2; break;
+      case b: h = (r-g)/d + 4; break;
+    }
+    h /= 6;
+  }
+  return [h, s, l];
+}
+
+function hue2rgb(p, q, t) {
+  if (t<0) t+=1; if (t>1) t-=1;
+  if (t<1/6) return p+(q-p)*6*t;
+  if (t<1/2) return q;
+  if (t<2/3) return p+(q-p)*(2/3-t)*6;
+  return p;
+}
+
+function hslToRgb(h, s, l) {
+  if (s === 0) { const v = Math.round(l*255); return [v,v,v]; }
+  const q = l<0.5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
+  return [
+    Math.round(hue2rgb(p,q,h+1/3)*255),
+    Math.round(hue2rgb(p,q,h)    *255),
+    Math.round(hue2rgb(p,q,h-1/3)*255),
+  ];
+}
+
+function applyAllAdjustments(imageData) {
+  const adj = S.adj;
+  const d   = imageData.data;
+  const w   = imageData.width;
+  const h   = imageData.height;
+  const n   = d.length;
+
+  // ---- per-pixel pass ----
+  const expFactor = Math.pow(2, adj.exposure / 50);
+  const cFactor   = (100 + adj.contrast) / 100;
+
+  for (let i = 0; i < n; i += 4) {
+    let r = d[i], g = d[i+1], b = d[i+2];
+
+    // Exposure
+    if (adj.exposure !== 0) {
+      r = clamp(r * expFactor);
+      g = clamp(g * expFactor);
+      b = clamp(b * expFactor);
+    }
+    // Brightness
+    if (adj.brightness !== 0) {
+      r = clamp(r + adj.brightness);
+      g = clamp(g + adj.brightness);
+      b = clamp(b + adj.brightness);
+    }
+    // Contrast
+    if (adj.contrast !== 0) {
+      r = clamp(128 + (r-128)*cFactor);
+      g = clamp(128 + (g-128)*cFactor);
+      b = clamp(128 + (b-128)*cFactor);
+    }
+    // Temperature (warm = +R -B, cool = -R +B)
+    if (adj.temp !== 0) {
+      r = clamp(r + adj.temp * 1.6);
+      b = clamp(b - adj.temp * 1.6);
+    }
+    // Tint (green ↔ magenta)
+    if (adj.tint !== 0) {
+      g = clamp(g + adj.tint * 1.2);
+    }
+    // Saturation
+    if (adj.saturation !== 0) {
+      const [hl, sl, ll] = rgbToHsl(r, g, b);
+      const ns = Math.max(0, Math.min(1, sl + adj.saturation / 100));
+      if (ns !== sl) { [r,g,b] = hslToRgb(hl, ns, ll); }
+    }
+    // Shadow lift / push
+    if (adj.shadow !== 0) {
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      if (lum < 160) {
+        const weight = (160 - lum) / 160;
+        const add = adj.shadow * weight * 0.72;
+        r = clamp(r + add);
+        g = clamp(g + add);
+        b = clamp(b + add);
+      }
+    }
+    // HD Light
+    if (adj.hdLight > 0) {
+      const lightStr = adj.hdLight / 100;
+      r = clamp(r + lightStr*(255-r)*0.26);
+      g = clamp(g + lightStr*(255-g)*0.26);
+      b = clamp(b + lightStr*(255-b)*0.26);
+    } else if (adj.hdLight < 0) {
+      const darkStr = (-adj.hdLight) / 100;
+      r = clamp(r * (1 - darkStr*0.48));
+      g = clamp(g * (1 - darkStr*0.48));
+      b = clamp(b * (1 - darkStr*0.48));
+    }
+
+    d[i]=r; d[i+1]=g; d[i+2]=b;
+  }
+
+  // ---- HGEQ ----
+  if (adj.hgeq > 0) {
+    const str = Math.min(adj.hgeq / 100, 1);
+    const hist = new Int32Array(256);
+    for (let i=0; i<n; i+=4) {
+      hist[(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) | 0]++;
+    }
+    const total = w*h;
+    let cum = 0, cdfMin = 0, cdfMinSet = false;
+    const cdf = new Uint32Array(256);
+    for (let i=0; i<256; i++) {
+      cum += hist[i]; cdf[i] = cum;
+      if (!cdfMinSet && hist[i]>0) { cdfMin = cum; cdfMinSet = true; }
+    }
+    const map = new Uint8ClampedArray(256);
+    const denom = (total - cdfMin) || 1;
+    for (let i=0; i<256; i++) map[i] = ((cdf[i]-cdfMin)/denom*255)|0;
+    for (let i=0; i<n; i+=4) {
+      d[i]   = clamp(d[i]   * (1-str) + map[d[i]]   * str);
+      d[i+1] = clamp(d[i+1] * (1-str) + map[d[i+1]] * str);
+      d[i+2] = clamp(d[i+2] * (1-str) + map[d[i+2]] * str);
+    }
+  }
+
+  // ---- Auto Contrast ----
+  if (adj.autoContrast > 0) {
+    const str = Math.min(adj.autoContrast / 100, 1);
+    let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+    for (let i=0; i<n; i+=4) {
+      if (d[i]   <minR) minR=d[i];   if (d[i]   >maxR) maxR=d[i];
+      if (d[i+1] <minG) minG=d[i+1]; if (d[i+1] >maxG) maxG=d[i+1];
+      if (d[i+2] <minB) minB=d[i+2]; if (d[i+2] >maxB) maxB=d[i+2];
+    }
+    const rR=maxR-minR||1, rG=maxG-minG||1, rB=maxB-minB||1;
+    for (let i=0; i<n; i+=4) {
+      d[i]   = clamp(d[i]   *(1-str) + (d[i]  -minR)/rR*255*str);
+      d[i+1] = clamp(d[i+1] *(1-str) + (d[i+1]-minG)/rG*255*str);
+      d[i+2] = clamp(d[i+2] *(1-str) + (d[i+2]-minB)/rB*255*str);
+    }
+  }
+
+  // ---- Dehaze ----
+  if (adj.dehaze > 0) {
+    const str = adj.dehaze / 100;
+    // estimate avg luminance
+    let lumSum = 0;
+    for (let i=0; i<n; i+=4) lumSum += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    const avgLum = lumSum / (n/4);
+    const thresh = avgLum * 0.75;
+    for (let i=0; i<n; i+=4) {
+      const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      if (lum > thresh) {
+        const red = str * (lum - thresh) / (255 - thresh) * 28;
+        d[i]   = clamp(d[i]   - red);
+        d[i+1] = clamp(d[i+1] - red);
+        d[i+2] = clamp(d[i+2] - red);
+      } else {
+        const boost = str * (1 - lum / thresh) * 18;
+        d[i]   = clamp(d[i]   + boost);
+        d[i+1] = clamp(d[i+1] + boost);
+        d[i+2] = clamp(d[i+2] + boost);
+      }
+    }
+  }
+
+  // ---- Smooth (box blur) ----
+  if (adj.smooth > 0) {
+    const radius = Math.max(1, Math.round(adj.smooth / 18));
+    boxBlur(d, w, h, radius);
+  }
+
+  // ---- Sharpness / Deblur (unsharp mask) ----
+  if (adj.sharpness > 0 || adj.deblur > 0) {
+    const amount = Math.max(adj.sharpness, adj.deblur) / 100 * 1.8;
+    unsharpMask(d, w, h, amount);
+  }
+
+  // ---- Structure ----
+  if (adj.structure > 0) {
+    applyStructure(d, w, h, adj.structure / 100);
+  }
+
+  return imageData;
+}
+
+// ---- Box blur (in-place) ----
+function boxBlur(d, w, h, r) {
+  const src = new Uint8ClampedArray(d);
+  for (let y=0; y<h; y++) {
+    for (let x=0; x<w; x++) {
+      let R=0, G=0, B=0, cnt=0;
+      for (let dy=-r; dy<=r; dy++) {
+        for (let dx=-r; dx<=r; dx++) {
+          const ny=Math.min(h-1,Math.max(0,y+dy));
+          const nx=Math.min(w-1,Math.max(0,x+dx));
+          const idx=(ny*w+nx)*4;
+          R+=src[idx]; G+=src[idx+1]; B+=src[idx+2]; cnt++;
+        }
+      }
+      const i=(y*w+x)*4;
+      d[i]=(R/cnt)|0; d[i+1]=(G/cnt)|0; d[i+2]=(B/cnt)|0;
+    }
+  }
+}
+
+// ---- Unsharp mask (in-place) ----
+function unsharpMask(d, w, h, amount) {
+  const blurred = new Uint8ClampedArray(d);
+  const orig    = new Uint8ClampedArray(d);
+  // 3×3 box blur into blurred
+  for (let y=0; y<h; y++) {
+    for (let x=0; x<w; x++) {
+      let R=0, G=0, B=0;
+      for (let dy=-1; dy<=1; dy++) {
+        for (let dx=-1; dx<=1; dx++) {
+          const ny=Math.min(h-1,Math.max(0,y+dy));
+          const nx=Math.min(w-1,Math.max(0,x+dx));
+          const idx=(ny*w+nx)*4;
+          R+=orig[idx]; G+=orig[idx+1]; B+=orig[idx+2];
+        }
+      }
+      const i=(y*w+x)*4;
+      blurred[i]=(R/9)|0; blurred[i+1]=(G/9)|0; blurred[i+2]=(B/9)|0;
+    }
+  }
+  for (let i=0; i<d.length; i+=4) {
+    d[i]   = clamp(d[i]   + amount*(d[i]   - blurred[i]));
+    d[i+1] = clamp(d[i+1] + amount*(d[i+1] - blurred[i+1]));
+    d[i+2] = clamp(d[i+2] + amount*(d[i+2] - blurred[i+2]));
+  }
+}
+
+// ---- Structure: clarity-like edge enhancement ----
+function applyStructure(d, w, h, str) {
+  const orig = new Uint8ClampedArray(d);
+  // Blur with larger radius
+  const blurred = new Uint8ClampedArray(d);
+  const blurRadius = 3;
+  for (let y=0; y<h; y++) {
+    for (let x=0; x<w; x++) {
+      let R=0,G=0,B=0,cnt=0;
+      for (let dy=-blurRadius; dy<=blurRadius; dy++) {
+        for (let dx=-blurRadius; dx<=blurRadius; dx++) {
+          const ny=Math.min(h-1,Math.max(0,y+dy));
+          const nx=Math.min(w-1,Math.max(0,x+dx));
+          const idx=(ny*w+nx)*4;
+          R+=orig[idx]; G+=orig[idx+1]; B+=orig[idx+2]; cnt++;
+        }
+      }
+      const i=(y*w+x)*4;
+      blurred[i]=(R/cnt)|0; blurred[i+1]=(G/cnt)|0; blurred[i+2]=(B/cnt)|0;
+    }
+  }
+  const amount = str * 1.4;
+  for (let i=0; i<d.length; i+=4) {
+    d[i]   = clamp(d[i]   + amount*(d[i]   - blurred[i]));
+    d[i+1] = clamp(d[i+1] + amount*(d[i+1] - blurred[i+1]));
+    d[i+2] = clamp(d[i+2] + amount*(d[i+2] - blurred[i+2]));
+  }
+}
+
+// ============================================================
+//  CANVAS INTERACTION (pan / zoom / long-press save)
+// ============================================================
+
+function getTouchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function getTouchMid(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2,
+  };
+}
+
+function canvasLocalPos(e) {
+  const rect = canvasWrap.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+// --- Mouse events ---
+canvasWrap.addEventListener('mousedown', e => {
+  if (S.locked) { startLongPress(e.clientX, e.clientY); return; }
+  S.isDragging = true;
+  S.dragStartX = e.clientX; S.dragStartY = e.clientY;
+  S.dragPanX = S.panX; S.dragPanY = S.panY;
+  canvasWrap.classList.add('dragging');
+  startLongPress(e.clientX, e.clientY);
+});
+
+canvasWrap.addEventListener('mousemove', e => {
+  if (!S.isDragging) return;
+  cancelLongPress();
+  S.panX = S.dragPanX + (e.clientX - S.dragStartX);
+  S.panY = S.dragPanY + (e.clientY - S.dragStartY);
+  drawFrame();
+});
+
+canvasWrap.addEventListener('mouseup',    cancelDrag);
+canvasWrap.addEventListener('mouseleave', cancelDrag);
+
+function cancelDrag() {
+  cancelLongPress();
+  if (S.isDragging) { S.isDragging = false; canvasWrap.classList.remove('dragging'); }
+}
+
+// Mouse wheel zoom
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (S.locked) return;
+  const factor = e.deltaY < 0 ? 1.1 : 0.91;
+  const pos = canvasLocalPos(e);
+  zoomAround(factor, pos.x, pos.y);
+}, { passive: false });
+
+// --- Touch events ---
+canvasWrap.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    startLongPress(t.clientX, t.clientY);
+    if (S.locked) return;
+    S.isDragging = true;
+    S.dragStartX = t.clientX; S.dragStartY = t.clientY;
+    S.dragPanX = S.panX; S.dragPanY = S.panY;
+    canvasWrap.classList.add('dragging');
+  } else if (e.touches.length === 2) {
+    cancelLongPress();
+    S.isDragging = false;
+    canvasWrap.classList.remove('dragging');
+    S.pinchDist = getTouchDist(e.touches);
+  }
+}, { passive: false });
+
+canvasWrap.addEventListener('touchmove', e => {
+  e.preventDefault();
+  cancelLongPress();
+  if (e.touches.length === 1 && S.isDragging && !S.locked) {
+    const t = e.touches[0];
+    S.panX = S.dragPanX + (t.clientX - S.dragStartX);
+    S.panY = S.dragPanY + (t.clientY - S.dragStartY);
+    drawFrame();
+  } else if (e.touches.length === 2 && !S.locked) {
+    const newDist = getTouchDist(e.touches);
+    if (S.pinchDist > 0) {
+      const factor = newDist / S.pinchDist;
+      const mid = getTouchMid(e.touches);
+      const rect = canvasWrap.getBoundingClientRect();
+      zoomAround(factor, mid.x - rect.left, mid.y - rect.top);
+    }
+    S.pinchDist = newDist;
+  }
+}, { passive: false });
+
+canvasWrap.addEventListener('touchend', e => {
+  if (e.touches.length < 2) S.pinchDist = 0;
+  if (e.touches.length === 0) {
+    cancelDrag();
+    // cancelLongPress handled by cancelDrag only if moved; let it fire if not moved
+  }
+}, { passive: false });
+
+// ---- Zoom around a point ----
+function zoomAround(factor, cx, cy) {
+  const newViewScale = Math.max(0.1, Math.min(10, S.viewScale * factor));
+  const ratio = newViewScale / S.viewScale;
+  S.panX = cx - ratio * (cx - S.panX);
+  S.panY = cy - ratio * (cy - S.panY);
+  S.viewScale = newViewScale;
+  // Sync zoom control display
+  const zoomVal = Math.round(S.viewScale * 100);
+  S.adj.zoom = zoomVal;
+  const el = document.getElementById('v-zoom');
+  if (el) el.textContent = zoomVal;
+  drawFrame();
+}
+
+// ============================================================
+//  LONG-PRESS → SAVE
+// ============================================================
+
+function startLongPress(cx, cy) {
+  cancelLongPress();
+  S._lpX = cx; S._lpY = cy;
+  S.longPressTimer = setTimeout(saveImage, 800);
+}
+
+function cancelLongPress() {
+  if (S.longPressTimer) { clearTimeout(S.longPressTimer); S.longPressTimer = null; }
+}
+
+function saveImage() {
+  cancelLongPress();
+  // Flash feedback
+  saveFlash.classList.remove('go');
+  void saveFlash.offsetWidth;
+  saveFlash.classList.add('go');
+  saveFlash.addEventListener('animationend', () => saveFlash.classList.remove('go'), { once: true });
+
+  // Build final canvas at original resolution
+  const outW = S.origW * (S.adj.size / 100);
+  const outH = S.origH * (S.adj.size / 100);
+  const out = document.createElement('canvas');
+  out.width = Math.round(outW); out.height = Math.round(outH);
+  const outCtx = out.getContext('2d');
+  if (S.processedBmp) {
+    outCtx.drawImage(S.processedBmp, 0, 0, out.width, out.height);
+  } else if (S.origBitmap) {
+    outCtx.drawImage(S.origBitmap, 0, 0, out.width, out.height);
+  } else {
+    return;
+  }
+
+  // Try Web Share API first (mobile "save to photos")
+  out.toBlob(blob => {
+    const file = new File([blob], 'photomagician.jpg', { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'PhotoMagician' }).catch(() => fallbackDownload(out));
+    } else {
+      fallbackDownload(out);
+    }
+  }, 'image/jpeg', 0.95);
+}
+
+function fallbackDownload(srcCanvas) {
+  const link = document.createElement('a');
+  link.download = 'photomagician.jpg';
+  link.href = srcCanvas.toDataURL('image/jpeg', 0.95);
+  link.click();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+
+function init() {
+  resizeCanvas();
+  buildTopControls();
+  buildBottomControls();
+  drawFrame(); // shows logo watermark
+}
+
+window.addEventListener('resize', () => {
+  if (S.origBitmap) fitPhoto();
+  drawFrame();
+});
+
+init();
+</script>
+</body>
+</html>
